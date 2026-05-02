@@ -2,12 +2,12 @@ import express from "express";
 import cors from "cors";
 import fetch from "node-fetch";
 import { totp } from "otplib";
-
-// Purani options wali line hata dein aur ye use karein
 totp.options = { 
   step: 30,
-  window: 1 
+  window: 1,
+  encoding: "ascii" // Jab hum manually decodeBase32 use karte hain, toh ise "ascii" ya "buffer" ki tarah treat karna hota hai
 };
+
 // Base32 decoding helper function
 function decodeBase32(base32) {
     const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
