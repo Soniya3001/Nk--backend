@@ -8,6 +8,24 @@ totp.options = {
   step: 30,
   window: 1 
 };
+// Base32 decoding helper function
+function decodeBase32(base32) {
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+    let bits = 0;
+    let value = 0;
+    let output = [];
+    for (let i = 0; i < base32.length; i++) {
+        const idx = alphabet.indexOf(base32[i].toUpperCase());
+        if (idx === -1) continue;
+        value = (value << 5) | idx;
+        bits += 5;
+        if (bits >= 8) {
+            output.push((value >>> (bits - 8)) & 255);
+            bits -= 8;
+        }
+    }
+    return Buffer.from(output);
+}
 
 const app    = express();
 const PORT   = process.env.PORT || 3000;
@@ -101,7 +119,9 @@ async function login() {
       return false;
     }
     // Try current TOTP
-    var totpCode = totp.generate(TOTP_SECRET);
+    const decodedSecret = decodeBase32(TOTP_SECRET); // Pehle secret decode karein
+var totpCode = totp.generate(decodedSecret);    // Phir code generate karein
+
     console.log("TOTP generated:", totpCode, "| Secret length:", TOTP_SECRET.length);
     var body = JSON.stringify({ clientcode: CLIENT_ID, password: MPIN, totp: totpCode });
     var r = await fetch(AO_URL + "/rest/auth/angelbroking/user/v1/loginByPassword", {
@@ -137,7 +157,9 @@ async function login() {
 // Debug endpoint - check what TOTP is being generated
 app.get("/api/debug", function(req, res) {
   try {
-    var code = totp.generate(TOTP_SECRET);
+    const decodedSecret = decodeBase32(TOTP_SECRET);
+var code = totp.generate(decodedSecret);
+
     var remaining = 30 - (Math.floor(Date.now() / 1000) % 30);
     res.json({
       totp_code:       code,
