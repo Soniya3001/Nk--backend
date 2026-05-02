@@ -90,26 +90,63 @@ const AO_HEADERS = function(jwt) {
 
 async function login() {
   try {
+    if (!API_KEY || !CLIENT_ID || !MPIN || !TOTP_SECRET) {
+      console.error("Missing env vars!");
+      return false;
+    }
+    // Try current TOTP
     var totpCode = totp.generate(TOTP_SECRET);
+    console.log("TOTP generated:", totpCode, "| Secret length:", TOTP_SECRET.length);
+    var body = JSON.stringify({ clientcode: CLIENT_ID, password: MPIN, totp: totpCode });
     var r = await fetch(AO_URL + "/rest/auth/angelbroking/user/v1/loginByPassword", {
       method: "POST",
-      headers: AO_HEADERS(null),
-      body: JSON.stringify({ clientcode: CLIENT_ID, password: MPIN, totp: totpCode }),
+      headers: {
+        "Content-Type":     "application/json",
+        "Accept":           "application/json",
+        "X-UserType":       "USER",
+        "X-SourceID":       "WEB",
+        "X-ClientLocalIP":  "192.168.1.1",
+        "X-ClientPublicIP": "106.193.147.98",
+        "X-MACAddress":     "fe80::216e:6507:4b90:3719",
+        "X-PrivateKey":     API_KEY,
+      },
+      body: body,
     });
     var d = await r.json();
+    console.log("Login response:", JSON.stringify(d));
     if (d.status && d.data && d.data.jwtToken) {
       jwtToken  = d.data.jwtToken;
       tokenTime = Date.now();
-      console.log("Login OK");
+      console.log("Login SUCCESS!");
       return true;
     }
-    console.error("Login failed:", JSON.stringify(d));
+    console.error("Login failed:", d.message, d.errorcode);
     return false;
   } catch(e) {
     console.error("Login error:", e.message);
     return false;
   }
 }
+
+// Debug endpoint - check what TOTP is being generated
+app.get("/api/debug", function(req, res) {
+  try {
+    var code = totp.generate(TOTP_SECRET);
+    var remaining = 30 - (Math.floor(Date.now() / 1000) % 30);
+    res.json({
+      totp_code:       code,
+      totp_secret_len: TOTP_SECRET ? TOTP_SECRET.length : 0,
+      client_id:       CLIENT_ID,
+      api_key_set:     !!API_KEY,
+      mpin_set:        !!MPIN,
+      totp_secret_set: !!TOTP_SECRET,
+      token_valid:     !!jwtToken,
+      seconds_remaining: remaining,
+    });
+  } catch(e) {
+    res.json({ error: e.message });
+  }
+});
 
 async function ensureToken() {
   if (!jwtToken || !tokenTime || (Date.now() - tokenTime) > TOKEN_TTL) {
@@ -222,8 +259,9 @@ app.get("/api/history", async function(req, res) {
   }
 });
 
-login();
-
-app.listen(PORT, function() {
+// Try login on startup but don't crash if it fails
+login().then(function(ok) {
+  if (!ok) console.log("Startup login failed — will retry on first request");
+});
   console.log("NK Scanner Backend v3.0 Angel One — port " + PORT);
 });
