@@ -3,6 +3,9 @@ import cors from "cors";
 import fetch from "node-fetch";
 import { totp } from "otplib";
 
+// Ye line zaroori hai:
+totp.options = { encoding: "base32" }; 
+
 const app    = express();
 const PORT   = process.env.PORT || 3000;
 const AO_URL = "https://apiconnect.angelone.in";
