@@ -3,8 +3,11 @@ import cors from "cors";
 import fetch from "node-fetch";
 import { totp } from "otplib";
 
-// Ye line zaroori hai:
-totp.options = { encoding: "base32" }; 
+// Purani options wali line hata dein aur ye use karein
+totp.options = { 
+  step: 30,
+  window: 1 
+};
 
 const app    = express();
 const PORT   = process.env.PORT || 3000;
